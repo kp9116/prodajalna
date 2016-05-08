@@ -27,6 +27,7 @@ streznik.use(
 );
 
 var razmerje_usd_eur = 0.877039116;
+var uporabnik = 0;
 
 function davcnaStopnja(izvajalec, zanr) {
   switch (izvajalec) {
@@ -44,9 +45,11 @@ function davcnaStopnja(izvajalec, zanr) {
       return 9.5;
   }
 }
-
 // Prikaz seznama pesmi na strani
 streznik.get('/', function(zahteva, odgovor) {
+  if(zahteva.session.uporabnik!=1){
+    odgovor.redirect('/prijava');
+  }else{
   pb.all("SELECT Track.TrackId AS id, Track.Name AS pesem, \
           Artist.Name AS izvajalec, Track.UnitPrice * " +
           razmerje_usd_eur + " AS cena, \
@@ -67,7 +70,9 @@ streznik.get('/', function(zahteva, odgovor) {
           vrstice[i].stopnja = davcnaStopnja(vrstice[i].izvajalec, vrstice[i].zanr);
         odgovor.render('seznam', {seznamPesmi: vrstice});
       }
+          
   })
+  }
 })
 
 // Dodajanje oz. brisanje pesmi iz košarice
@@ -269,7 +274,7 @@ streznik.get('/prijava', function(zahteva, odgovor) {
 // Prikaz nakupovalne košarice za stranko
 streznik.post('/stranka', function(zahteva, odgovor) {
   var form = new formidable.IncomingForm();
-  
+  zahteva.session.uporabnik = 1;
   form.parse(zahteva, function (napaka1, polja, datoteke) {
     odgovor.redirect('/')
   });
@@ -277,11 +282,14 @@ streznik.post('/stranka', function(zahteva, odgovor) {
 
 // Odjava stranke
 streznik.post('/odjava', function(zahteva, odgovor) {
+    zahteva.session.uporabnik = 0;
     odgovor.redirect('/prijava') 
 })
 
 
 
 streznik.listen(process.env.PORT, function() {
-  console.log("Strežnik pognan!");
+    console.log("Strežnik pognan!");
 })
+
+
