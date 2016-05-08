@@ -133,7 +133,14 @@ var pesmiIzRacuna = function(racunId, callback) {
     Track.TrackId IN (SELECT InvoiceLine.TrackId FROM InvoiceLine, Invoice \
     WHERE InvoiceLine.InvoiceId = Invoice.InvoiceId AND Invoice.InvoiceId = " + racunId + ")",
     function(napaka, vrstice) {
-      console.log(vrstice);
+      if (napaka) {
+        callback(false);
+      } else {
+        for (var i=0; i<vrstice.length; i++) {
+          vrstice[i].stopnja = davcnaStopnja((vrstice[i].opisArtikla.split(' (')[1]).split(')')[0], vrstice[i].zanr);
+        }
+        callback(vrstice);
+      }
     })
 }
 
@@ -142,13 +149,44 @@ var strankaIzRacuna = function(racunId, callback) {
     pb.all("SELECT Customer.* FROM Customer, Invoice \
             WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + racunId,
     function(napaka, vrstice) {
-      console.log(vrstice);
+      //console.log(vrstice);
+      callback(vrstice);
     })
 }
 
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
-  odgovor.end();
+  var form = new formidable.IncomingForm();
+  
+  form.parse(zahteva, function (napaka1, polja, datoteke) {
+    pesmiIzRacuna(polja.seznamRacunov,function(pesmi){
+      if (!pesmi) {
+      odgovor.sendStatus(500);
+    } else if (pesmi.length == 0) {
+      odgovor.send("<p>V košarici nimate nobene pesmi, \
+        zato računa ni mogoče pripraviti!</p>");
+    } else {
+      
+      strankaIzRacuna(polja.seznamRacunov,function(vrstice){
+        odgovor.setHeader('content-type', 'text/xml');
+      odgovor.render('eslog', {
+        vizualiziraj: true,
+        postavkeRacuna: pesmi,
+        NazivPartnerja1: vrstice[0].FirstName + " " + vrstice[0].LastName,
+        NazivPartnerja2: vrstice[0].Company,
+        Ulica1: vrstice[0].Address,
+        Kraj: vrstice[0].City,
+        NazivDrzave: vrstice[0].Country,
+        PostnaStevilka: vrstice[0].PostalCode,
+        KomunikacijeTE: vrstice[0].phone,
+        KomunikacijeFX: vrstice[0].Fax,
+        ImeOsebe: vrstice[0].FirstName + " " + vrstice[0].LastName+" "+vrstice[0].Email,
+      })
+      
+      })  
+    }
+    })
+  });
 })
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
@@ -163,7 +201,7 @@ streznik.get('/izpisiRacun/:oblika', function(zahteva, odgovor) {
       odgovor.setHeader('content-type', 'text/xml');
       odgovor.render('eslog', {
         vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
-        postavkeRacuna: pesmi
+        postavkeRacuna: pesmi,
       })  
     }
   })
