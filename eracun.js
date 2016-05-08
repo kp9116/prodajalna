@@ -159,6 +159,16 @@ var strankaIzRacuna = function(racunId, callback) {
     })
 }
 
+// vrni podatke o prijavlenem uporabniku iz ID
+var StrankaIzId = function(strankaId,callback){
+  pb.all("SELECT DISTINCT Customer.* FROM Customer, Invoice \
+            WHERE Customer.CustomerId = Invoice.CustomerId AND Customer.CustomerId = "+strankaId,
+    function(napaka, vrstice) {
+      //console.log(vrstice);
+      callback(vrstice);
+    })
+}
+
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
   var form = new formidable.IncomingForm();
@@ -174,7 +184,7 @@ streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
       
       strankaIzRacuna(polja.seznamRacunov,function(vrstice){
         odgovor.setHeader('content-type', 'text/xml');
-      odgovor.render('eslog', {
+        odgovor.render('eslog', {
         vizualiziraj: true,
         postavkeRacuna: pesmi,
         NazivPartnerja1: vrstice[0].FirstName + " " + vrstice[0].LastName,
@@ -183,7 +193,7 @@ streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
         Kraj: vrstice[0].City,
         NazivDrzave: vrstice[0].Country,
         PostnaStevilka: vrstice[0].PostalCode,
-        KomunikacijeTE: vrstice[0].phone,
+        KomunikacijeTE: vrstice[0].Phone,
         KomunikacijeFX: vrstice[0].Fax,
         ImeOsebe: vrstice[0].FirstName + " " + vrstice[0].LastName+" "+vrstice[0].Email,
       })
@@ -203,11 +213,23 @@ streznik.get('/izpisiRacun/:oblika', function(zahteva, odgovor) {
       odgovor.send("<p>V košarici nimate nobene pesmi, \
         zato računa ni mogoče pripraviti!</p>");
     } else {
+      StrankaIzId(zahteva.session.idUporabnika,function(vrstice){
+      
       odgovor.setHeader('content-type', 'text/xml');
       odgovor.render('eslog', {
         vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
         postavkeRacuna: pesmi,
+        NazivPartnerja1: vrstice[0].FirstName + " " + vrstice[0].LastName,
+        NazivPartnerja2: vrstice[0].Company,
+        Ulica1: vrstice[0].Address,
+        Kraj: vrstice[0].City,
+        NazivDrzave: vrstice[0].Country,
+        PostnaStevilka: vrstice[0].PostalCode,
+        KomunikacijeTE: vrstice[0].Phone,
+        KomunikacijeFX: vrstice[0].Fax,
+        ImeOsebe: vrstice[0].FirstName + " " + vrstice[0].LastName+" "+vrstice[0].Email,
       })  
+     })
     }
   })
 })
@@ -282,6 +304,7 @@ streznik.post('/stranka', function(zahteva, odgovor) {
   var form = new formidable.IncomingForm();
   zahteva.session.uporabnik = 1;
   form.parse(zahteva, function (napaka1, polja, datoteke) {
+    zahteva.session.idUporabnika = polja.seznamStrank;
     odgovor.redirect('/')
   });
 })
